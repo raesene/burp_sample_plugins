@@ -30,15 +30,13 @@ class BurpExtender
   end
 
   def performAction(baseRequestResponse, macroItems)
-    #This analyses the request that we're going to modift
+    #This analyses the request that we're going to modify
     request_info = @helpers.analyzeRequest(baseRequestResponse)
     #This gets the first response from a macro item... should work for the basic case
     macro_response_info = @helpers.analyzeResponse(macroItems[0].getResponse())
     @stdout.println("Starting up")
-    #If we wanted to extract a header from the macro response to inject int our request
-    #macro_response_headers = macro_response_info.getHeaders()
-
     
+    #Extract the JWT token from the macro response
     macro_msg = macroItems[0].getResponse()
     macro_body_offset = macro_response_info.getBodyOffset()
     macro_body = macro_msg[macro_body_offset..-1]
@@ -49,10 +47,8 @@ class BurpExtender
 
     #Get the headers from our base request
     headers = request_info.getHeaders()
-
     #we need a ref for the existing authorisation header if any to delete
     auth_to_delete = ''
-    
     #So headers is an ArrayList so no ruby delete methods first iterate over and get our header
     headers.each do |head|
       if head =~ /Authorization: JWT/
@@ -62,7 +58,7 @@ class BurpExtender
     #then remove the header if it exists 
     headers.remove(auth_to_delete)
 
-    #Add in this case our sample text
+    #Add in our new authorization header
     headers.add('Authorization: JWT ' + jwt)
     #We need to get the body to add to our headers which is what the next three lines do
     msg = baseRequestResponse.getRequest()
