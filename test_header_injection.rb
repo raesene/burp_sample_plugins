@@ -1,4 +1,5 @@
 require 'java'
+require 'json'
 java_import 'burp.IBurpExtender'
 java_import 'burp.IHttpRequestResponse'
 java_import 'burp.IHttpService'
@@ -34,22 +35,35 @@ class BurpExtender
     #This gets the first response from a macro item... should work for the basic case
     macro_response_info = @helpers.analyzeResponse(macroItems[0].getResponse())
     @stdout.println("Starting up")
-    #In this case we're extracting a header from the macro response to inject int our request
-    macro_response_headers = macro_response_info.getHeaders()
-    #Burp/Java/JRuby doesn't seem to like dynamic variable assignment to lets declare
-    thead = String.new
-    #Iterate over our headers looking for the right one
-    macro_response_headers.each do |mhead|
-      if mhead.downcase =~ /length/
-        #if we matche extract the headers value
-        thead = mhead
-      end
-    end
+    #If we wanted to extract a header from the macro response to inject int our request
+    #macro_response_headers = macro_response_info.getHeaders()
+
+    
+    macro_msg = macroItems[0].getResponse()
+    macro_body_offset = macro_response_info.getBodyOffset()
+    macro_body = macro_msg[macro_body_offset..-1]
+    macro_body_string = @helpers.bytesToString(macro_body)
+    jwt_token = JSON.parse(macro_body_string)
+    jwt = jwt_token["jwt"]
+
 
     #Get the headers from our base request
     headers = request_info.getHeaders()
+
+    #we need a ref for the existing authorisation header if any to delete
+    auth_to_delete = ''
+    
+    #So headers is an ArrayList so no ruby delete methods first iterate over and get our header
+    headers.each do |head|
+      if head =~ /Authorization: JWT/
+        auth_to_delete = head
+      end
+    end
+    #then remove the header if it exists 
+    headers.remove(auth_to_delete)
+
     #Add in this case our sample text
-    headers.add('example is' + thead)
+    headers.add('Authorization: JWT ' + jwt)
     #We need to get the body to add to our headers which is what the next three lines do
     msg = baseRequestResponse.getRequest()
     body_offset = request_info.getBodyOffset()
